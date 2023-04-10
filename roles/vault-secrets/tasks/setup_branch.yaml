@@ -29,7 +29,7 @@
   include_tasks: add_policy.yaml
   vars:
     branch: "{{ __vault_setup__branch_path }}"
-  loop: "{{ __vault_setup__branch.__policies }}"
+  loop: "{{ __vault_setup__branch.__policies | items }}"
   loop_control:
     loop_var: policy
   when: >-
