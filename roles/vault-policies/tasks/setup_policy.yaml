@@ -27,7 +27,7 @@
 - name: Add the policy to the tokens
   include_tasks: add_token.yaml
   vars:
-    policy: policy_to_setup.name
+    policy: "{{ policy_to_setup.name }}"
   loop: "{{ policy_to_setup.tokens }}"
   loop_control:
     loop_var: token

@@ -99,7 +99,7 @@ all:
               - path: /kloudster/alpha/bravo
                 capabilities: [read, list]
             tokens:
-              - name: some_token_2
+              - name: some_token
                 orphan: true
                 weight: 666
           - name: yet_another_policy

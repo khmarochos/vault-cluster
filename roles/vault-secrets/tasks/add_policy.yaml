@@ -8,7 +8,7 @@
       }}
     __vault_secrets__policy_from_globals: >-
       {{
-        (vault_policies | selectattr('name', 'equalto', policy.name) | default([]))[0]
+        (vault_policies | selectattr('name', 'equalto', policy.name))[0] | default([])
       }}
 
 - name: "Determine weight of {{ policy.name }} policy"

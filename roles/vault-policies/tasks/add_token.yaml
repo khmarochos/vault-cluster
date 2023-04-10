@@ -8,7 +8,7 @@
       }}
     __vault_tokens__token_from_globals: >-
       {{
-        (vault_tokens | selectattr('name', 'equalto', token.name) | default([]))[0]
+        (vault_tokens | selectattr('name', 'equalto', token.name))[0] | default([])
       }}
 
 - name: "Determine weight of {{ token.name }} token"
@@ -38,6 +38,17 @@
               __vault_tokens__token_from_globals.weight,
               0
             )
+          }
+        )
+      }}
+
+- name: "Add the policy name to the {{ token.name }} token"
+  set_fact:
+    __vault_tokens__token_from_policies: >-
+      {{
+        __vault_tokens__token_from_policies | combine(
+          {
+            'policies': [ policy ]
           }
         )
       }}
