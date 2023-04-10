@@ -1,0 +1,52 @@
+# Install OS instead of upgrade
+install
+# Use CD installation
+cdrom
+# Root password
+rootpw --iscrypted !!
+# System authorization information
+auth --useshadow --passalgo=sha512
+# Firewall configuration
+firewall --enabled --ssh
+# SELinux configuration
+selinux --disabled
+# Installation logging level
+logging --level=info
+# Use text mode install
+text
+# Do not configure the X Window System
+skipx
+# System timezone, language and keyboard
+timezone Europe/Kiev
+lang en_US.UTF-8
+keyboard us
+# If you want to configure a static IP:
+network --device eth0 --hostname {{ hostname }} --bootproto=static --ip={{ ipv4_address }} --netmask={{ ipv4_netmask }} --gateway={{ ipv4_gateway }} --nameserver={{ ipv4_nameservers | join(',') }}
+# System bootloader configuration
+bootloader --location=mbr
+# Partition clearing information
+clearpart --all --initlabel
+# Disk partitioning information
+part /boot --fstype=ext4 --size=512 --ondisk=vda
+part pv.01 --size=1 --grow --ondisk=vda
+volgroup vg_root pv.01
+logvol / --fstype=xfs --size=8192 --vgname=vg_root --name=lv_root
+logvol {{ vault_directory_main }} --fstype=xfs --size=1 --grow --vgname=vg_root --name=lv_vault
+# SSH key
+sshkey --user=root "{{ ssh_public_rsa_key }}"
+# Reboot after installation
+reboot
+# Packages
+%packages --nobase
+@core
+# @base
+%end
+#
+%post
+yum -y update
+yum -y install unzip
+yum -y install epel-release
+yum -y install yum-utils
+yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+yum -y install vault
+%end

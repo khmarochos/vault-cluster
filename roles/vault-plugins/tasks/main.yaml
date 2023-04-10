@@ -1,0 +1,17 @@
+---
+
+- name: Create a directory for plugins
+  file:
+    state: directory
+    path: "{{ vault_directory_plugins }}"
+    owner: root
+    group: root
+    mode: 0755
+
+- name: "Install all plugins"
+  include_tasks: plugin.yaml
+  vars:
+    temporary_directory: "{{ vault_directory_tmp }}/{{ plugin.name }}"
+  loop: "{{ vault_plugins }}"
+  loop_control:
+    loop_var: plugin

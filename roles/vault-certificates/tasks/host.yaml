@@ -1,0 +1,52 @@
+---
+
+- name: "Generate the key"
+  include_role:
+    name: pki-tree
+    tasks_from: generate_key.yml
+  vars:
+    ca_name_brief: "{{ hostvars[host].ca_name_brief }}"
+    key_name: "{{ hostvars[host].hostname }}"
+    key_is_encrypted: false
+    key_size: 2048
+    result_key_file: __vault_certificate__key_file
+
+- name: "Store the key's file name to the {{ host }} host's configuration"
+  set_fact:
+    tls_key_file: "{{ __vault_certificate__key_file }}"
+  delegate_to: "{{ host }}"
+  delegate_facts: true
+
+- name: "Issue the certificate"
+  include_role:
+    name: pki-tree
+    tasks_from: generate_certificate.yml
+  vars:
+    ca_name_brief: "{{ hostvars[host].ca_name_brief }}"
+    key_file: "{{ __vault_certificate__key_file }}"
+    key_is_encrypted: false
+    certificate_name: "{{ hostvars[host].hostname }}"
+    certificate_subject: "\
+      /C={{ pki_subject_country }}\
+      /ST={{ pki_subject_state_or_province }}\
+      /L={{ pki_subject_locality }}\
+      /O={{ pki_subject_organization }}\
+      /OU={{ pki_subject_organizational_unit }}\
+      /CN={{ hostvars[host].hostname }} Vault\
+      /emailAddress={{ pki_subject_email_address }}\
+      "
+    certificate_subject_alternative_names:
+      - "{{ hostvars[host].hostname }}"
+      - "{{ hostvars[host].vault_api_address }}"
+      - "localhost"
+      - "IP:127.0.0.1"
+    result_certificate_file: __vault_certificate__certificate_file
+    result_ca_certificate_chain_file: __vault_certificate__ca_certificate_chain_file
+
+- name: "Store the certificates' files' name to the {{ host }} host's configuration"
+  set_fact:
+    tls_certificate_file: "{{ __vault_certificate__certificate_file }}"
+    tls_ca_certificate_chain_file: "{{ __vault_certificate__ca_certificate_chain_file }}"
+  delegate_to: "{{ host }}"
+  delegate_facts: true
+

@@ -1,0 +1,7 @@
+---
+
+- name: Dump the keys of the {{ vault_cluster }} cluster to the file
+  copy:
+    dest: "{{ reveal_secrets_to_file }}"
+    content: "{{ vault_keys | to_nice_yaml }}"
+  delegate_to: localhost

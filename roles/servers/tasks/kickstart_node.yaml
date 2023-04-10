@@ -1,0 +1,30 @@
+---
+
+- name: "Prepare the CentOS Kickstart configuration file for {{ vault_cluster_node }}"
+  template:
+    src: vault.ks.j2
+    dest: "{{ kickstart_directory }}/{{ vault_cluster_node }}{{ kickstart_file_suffix }}"
+    mode: 0644
+    force: true
+  vars:
+    hostname: "{{ hostvars[vault_cluster_node]['hostname'] }}"
+    ipv4_address: "{{ hostvars[vault_cluster_node]['ipv4_address'] }}"
+    ipv4_netmask: "{{ hostvars[vault_cluster_node]['ipv4_netmask'] }}"
+    ipv4_gateway: "{{ hostvars[vault_cluster_node]['ipv4_gateway'] }}"
+    ipv4_nameservers: "{{ hostvars[vault_cluster_node]['ipv4_nameservers'] }}"
+    ssh_key: "{{ ssh_public_rsa_key }}"
+
+- name: "Get the CentOS Kickstart configuration file's checksum for {{ vault_cluster_node }}"
+  stat:
+    path: "{{ kickstart_directory }}/{{ vault_cluster_node }}{{ kickstart_file_suffix }}"
+    checksum_algorithm: sha1
+  register: __base__stat_result
+
+- name: "Remember the CentOS Kickstart configuration file's checksum for {{ vault_cluster_node }}"
+  set_fact:
+    __controller__kickstart_checksums: >-
+      {{
+        __controller__kickstart_checksums
+          | default({})
+          | combine({ vault_cluster_node: __base__stat_result.stat.checksum })
+      }}

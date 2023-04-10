@@ -1,0 +1,7 @@
+---
+
+- name: Issue certificates for all Vault clusters
+  include_tasks: cluster.yaml
+  loop: "{{ vault_clusters | difference([vault_clusters_group]) }}"
+  loop_control:
+    loop_var: cluster

@@ -1,0 +1,19 @@
+---
+
+vault_clusters_group: vault_clusters
+vault_clusters: >-
+  {{
+    groups[vault_clusters_group]
+    | map('extract', hostvars, 'group_names')
+    | flatten
+    | unique
+    | map('regex_search', '^vault_.+$')
+    | difference([vault_clusters_group])
+    | difference([None])
+  }}
+vault_directory_main: "/opt/vault"
+vault_directory_data: "{{ vault_directory_main }}/data"
+vault_directory_tls: "{{ vault_directory_main }}/tls"
+vault_directory_plugins: "{{ vault_directory_main }}/plugins"
+vault_directory_tmp: "{{ vault_directory_main }}/tmp"
+vault_directory_policies: "{{ vault_directory_main }}/policies"

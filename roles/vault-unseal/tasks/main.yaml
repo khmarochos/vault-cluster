@@ -1,0 +1,15 @@
+---
+
+- debug:
+    msg: "{{ vault_keys }}"
+
+- name: Unseal the Vault
+  shell:
+    cmd: "vault operator unseal {{ unseal_key | quote }}"
+  throttle: 1
+  loop: "{{ vault_keys.administrative.unseal_keys_b64 }}"
+  loop_control:
+    loop_var: unseal_key
+  when: >-
+    not skip_unseal | default(false) | bool
+  no_log: false

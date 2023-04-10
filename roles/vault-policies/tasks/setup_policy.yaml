@@ -1,0 +1,37 @@
+---
+
+- name: Check if the policy is mapping
+  fail:
+    msg: "The policy is not mapping"
+  when: policy_to_setup is not mapping
+
+- name: Render the policy as a HCL file
+  template:
+    src: "policy.hcl.j2"
+    dest: "{{ vault_directory_policies }}/{{ policy.name }}.hcl"
+  vars:
+    policy: "{{ policy_to_setup }}"
+
+- name: Apply the policy
+  command:
+    cmd: >-
+      vault
+      policy
+      write
+      {{ policy_to_setup.name }}
+      {{ vault_directory_policies }}/{{ policy_to_setup.name }}.hcl
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  no_log: false # Change it to true later
+
+- name: Add the policy to the tokens
+  include_tasks: add_token.yaml
+  vars:
+    policy: policy_to_setup.name
+  loop: "{{ policy_to_setup.tokens }}"
+  loop_control:
+    loop_var: token
+  when: >-
+    'tokens' in policy_to_setup and
+    policy_to_setup.tokens is defined and
+    policy_to_setup.tokens is iterable

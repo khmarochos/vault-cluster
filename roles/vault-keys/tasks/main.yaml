@@ -1,0 +1,14 @@
+---
+
+- block:
+
+    - include_tasks: reveal_to_console.yaml
+      when: reveal_secrets_to_console | default(false)
+
+    - include_tasks: reveal_to_file.yaml
+      when: reveal_secrets_to_file | default(false)
+
+  when: >-
+    inventory_hostname == vault_cluster_leader and
+    vault_keys | default({}) | dict2items | length > 0 and
+    vault_keys_updated == true

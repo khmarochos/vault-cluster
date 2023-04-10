@@ -1,0 +1,19 @@
+---
+
+- block:
+
+    - name: Create a directory for the policies
+      file:
+        path: "{{ vault_directory_policies }}"
+        state: directory
+        mode: 0755
+
+    - name: "Create the secrets' trees"
+      include_tasks: setup_branch.yaml
+      vars:
+        branch: "{{ vault_secrets }}"
+
+  when: >-
+    inventory_hostname == vault_cluster_leader and
+    vault_secrets is defined and
+    vault_secrets is mapping

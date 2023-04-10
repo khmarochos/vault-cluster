@@ -1,0 +1,80 @@
+---
+
+- name: Set a temporary fact which indicates that the new token shall be created
+  set_fact:
+    __vault_tokens__create: true
+
+- block:
+
+    - name: Check if the token exists
+      command:
+        cmd: >-
+          vault
+          token
+          lookup
+          -accessor=true
+          {{ vault_keys['additional_tokens'][token_to_setup.name]['auth']['accessor'] }}
+      environment:
+        VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+      register: __vault_tokens__token_lookup_result
+      failed_when: __vault_tokens__token_lookup_result.rc not in [0, 2]
+      changed_when: false
+
+    - name: Prevent the token creation if it already exists
+      set_fact:
+        __vault_tokens__create: false
+      when: >-
+        __vault_tokens__token_lookup_result.rc == 0 and
+        token_to_setup.regenerate | default(false) == false
+
+  when: >-
+    vault_keys is defined and
+    vault_keys is mapping and
+    'additional_tokens' in vault_keys and
+    vault_keys.additional_tokens is defined and
+    vault_keys.additional_tokens is mapping and
+    token_to_setup.name in vault_keys.additional_tokens
+
+- block:
+
+    - name: Create the token
+      command:
+        cmd: >-
+          vault
+          token
+          create
+          -format=json
+          -display-name={{ token_to_setup.name }}
+          {{
+            token_to_setup.policies
+            | map('quote')
+            | map('regex_replace', '^(.+)$', '-policy=\1')
+            | join(' ')
+          }}
+      environment:
+        VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+      register: __vault_tokens__token_create_result
+      no_log: true
+
+    - name: Memorize the token
+      set_fact:
+        vault_keys_updated: >-
+          true
+        vault_keys: >-
+          {{
+            vault_keys | default({}) | combine(
+              {
+                'additional_tokens': {
+                  token_to_setup.name: __vault_tokens__token_create_result.stdout | from_json | combine(
+                    token_to_setup.regenerate | default(false) | ternary(
+                      { 'regenerated': true },
+                      {}
+                    )
+                  )
+                }
+              },
+              recursive=true
+            )
+          }}
+
+  when: __vault_tokens__create

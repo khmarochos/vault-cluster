@@ -1,0 +1,63 @@
+---
+
+# https://stackoverflow.com/questions/75299324/ansible-parsing-a-dictionary-recursively
+- set_fact:
+    __vault_setup__branch: "{{ branch }}"
+
+- set_fact:
+    __vault_setup__branch_path: []
+  when: parent is not defined
+
+# Push the branch name to the stack
+- set_fact:
+    __vault_setup__branch_path: >-
+      {{
+        __vault_setup__branch_path + [ parent ]
+      }}
+  when: parent is defined
+
+- name: Set up the secret engine
+  include_tasks: setup_engine.yaml
+  vars:
+    engine_name: "{{ parent }}"
+    engine_parameters: "{{ __vault_setup__branch.__engine }}"
+  when:
+    __vault_setup__branch_path | length == 1 and
+    __vault_setup__branch.__engine is defined
+
+- name: Add the policies
+  include_tasks: add_policy.yaml
+  vars:
+    branch: "{{ __vault_setup__branch_path }}"
+  loop: "{{ __vault_setup__branch.__policies }}"
+  loop_control:
+    loop_var: policy
+  when: >-
+    '__policies' in __vault_setup__branch and
+    __vault_setup__branch.__policies is defined and
+    __vault_setup__branch.__policies is iterable
+
+- include_tasks: setup_leaf.yaml
+  vars:
+    branch: "{{ item.key }}"
+    leaf: "{{ item.value }}"
+  loop: "{{ __vault_setup__branch | dict2items }}"
+  when: >-
+    item.key is not regex('^__') and
+    item.value is not mapping
+
+- include_tasks: setup_branch.yaml
+  vars:
+    parent: "{{ item.key }}"
+    branch: "{{ item.value }}"
+  loop: "{{ __vault_setup__branch | dict2items }}"
+  when: >-
+    item.key is not regex('^__') and
+    item.value is mapping
+
+# Pop the branch name from the stack
+- set_fact:
+    __vault_setup__branch_path: >-
+      {{
+        __vault_setup__branch_path[:-1]
+      }}

@@ -1,0 +1,36 @@
+---
+
+- name: Check if engine parameters are mapping
+  fail:
+    msg: The engine parameters must be mapping
+  when: engine_parameters is not mapping
+
+- name: "Save the parameters of the {{ engine_name }} engine"
+  set_fact:
+    __vault_secrets__engine_parameters: "{{ engine_parameters }}"
+
+- name: "Check if the {{ engine_name }} engine is already set up"
+  command:
+    cmd: "vault secrets list -format=json"
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  changed_when: false
+  register: __vault_secrets__engines_list
+
+- name: "Set up the {{ engine_name }} engine"
+  command:
+    cmd: >-
+      vault
+        secrets
+        enable
+        -path={{ engine_name | quote }}
+        -version={{ engine_parameters.version | default(1) | quote }}
+        -description={{ engine_parameters.description | default("description is missing") | quote }}
+        {{ engine_parameters.type | quote }}
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  when: >-
+    __vault_secrets__engines_list.rc == 0 and
+    __vault_secrets__engines_list.stdout is defined and
+    __vault_secrets__engines_list.stdout | from_json is mapping and
+    engine_name ~ '/' not in (__vault_secrets__engines_list.stdout | from_json)

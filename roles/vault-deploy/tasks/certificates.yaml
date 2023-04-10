@@ -1,0 +1,53 @@
+---
+
+- name: Install the CA certificate as a trusted one
+  copy:
+    src: "{{ tls_ca_certificate_chain_file }}"
+    dest: /etc/pki/ca-trust/source/anchors
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Update the collection of trusted CAs
+  command:
+    cmd: update-ca-trust
+
+# - name: Create the certificates' directory
+#   file:
+#     state: directory
+#     path: "{{ vault_directory_tls }}"
+#     owner: root
+#     group: root
+#     mode: 0700
+
+- name: Install the CA certificate
+  copy:
+    src: "{{ tls_ca_certificate_chain_file }}"
+    dest: "{{ vault_directory_tls }}/vault-ca.pem"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Install the Vault server's certificate
+  copy:
+    src: "{{ tls_certificate_file }}"
+    dest: "{{ vault_directory_tls }}/vault-cert.pem"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Install the Vault server's key
+  copy:
+    src: "{{ tls_key_file }}"
+    dest: "{{ vault_directory_tls }}/vault-key.pem"
+    owner: root
+    group: vault
+    mode: 0640
+
+- name: Install the Vault configuration file
+  template:
+    src: "vault.hcl.j2"
+    dest: /etc/vault.d/vault.hcl
+    owner: root
+    group: root
+    mode: 0644

@@ -1,0 +1,3 @@
+kickstart_directory: "{{ spool_directory }}/kickstart"
+kickstart_file_suffix: .ks
+kickstart_server_port: 8888

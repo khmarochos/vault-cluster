@@ -1,0 +1,15 @@
+---
+
+# - name: Update the collection of trusted CAs
+#   command:
+#     cmd: update-ca-trust
+
+- name: Reload the firewalld service
+  service:
+    name: firewalld
+    state: reloaded
+
+- name: Restart the Vault server
+  service:
+    name: vault
+    state: restarted

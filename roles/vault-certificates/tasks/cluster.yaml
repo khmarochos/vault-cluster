@@ -1,0 +1,7 @@
+---
+
+- name: "Issue certificates for all Vault servers in the {{ cluster }} cluster"
+  include_tasks: host.yaml
+  loop: "{{ groups[cluster] }}"
+  loop_control:
+    loop_var: host

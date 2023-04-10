@@ -1,0 +1,27 @@
+---
+
+- name: Ask the operator to confirm the keys revealment
+  pause:
+    prompt: >-
+      Make sure that no one can see your screen
+      and type the 'REVEAL' word to have the keys
+      for the {{ vault_cluster }} cluster revealed
+  register: __vault__revealment_confirmation
+
+- name: Pass the operator's reply to localhost
+  set_fact:
+    __vault__revealment_confirmation: "{{ __vault__revealment_confirmation }}"
+  delegate_to: localhost
+  delegate_facts: true
+  when: __vault__revealment_confirmation is defined
+
+- block:
+    - name: "Reveal the keys for the {{ vault_cluster }} cluster"
+      debug:
+        msg: "{{ vault_keys }}"
+    - name: Wait for the operator to save the keys
+      pause:
+        prompt: "Please, save the keys and press <ENTER>"
+  when: >-
+    hostvars.localhost.__vault__revealment_confirmation.user_input is defined and
+    hostvars.localhost.__vault__revealment_confirmation.user_input == 'REVEAL'

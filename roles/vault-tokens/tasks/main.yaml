@@ -1,0 +1,19 @@
+---
+
+- block:
+
+    - name: Take the tokens to setup
+      set_fact:
+        __vault_tokens__tokens: >-
+          {{
+            tokens_to_setup | default(vault_tokens) | default([])
+          }}
+
+    - name: Create the tokens
+      include_tasks: setup_token.yaml
+      loop: "{{ __vault_tokens__tokens }}"
+      loop_control:
+        loop_var: token_to_setup
+
+  when: >-
+    inventory_hostname == vault_cluster_leader

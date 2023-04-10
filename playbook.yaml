@@ -1,0 +1,46 @@
+---
+
+- name: Prepare everything
+  any_errors_fatal: true
+  hosts:
+    - localhost
+  roles:
+    - configuration
+    - servers
+    - pki-tree
+    - vault-certificates
+
+- name: Deploy and initialize Vault
+  any_errors_fatal: true
+  hosts:
+    - vault_clusters
+  roles:
+    - vault-deploy
+    - vault-initialize
+    - vault-unseal
+    - vault-plugins
+    - vault-keys
+
+- name: Run post-installation tasks
+  any_errors_fatal: true
+  hosts:
+    - vault_clusters
+  roles:
+    - vault-secrets
+    - vault-policies
+    - vault-tokens
+    - vault-keys
+  tags:
+    - vault_post_install
+
+- name: Install the tokens ONLY
+  hosts:
+    - vault_clusters
+  roles:
+    - configuration
+    - vault-initialize
+    - vault-tokens
+    - vault-keys
+  tags:
+    - never
+    - vault_tokens

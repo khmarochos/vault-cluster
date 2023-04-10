@@ -1,0 +1,154 @@
+all:
+  vars:
+    spool_directory: "{{ lookup('env', 'HOME') }}/var/khmarochos"
+    ssh_private_key_file: "{{ spool_directory }}/ssh/id_rsa"
+    ssh_public_key_file: "{{ ssh_private_key_file }}.pub"
+    ssh_known_hosts_file: "{{ spool_directory }}/ssh/known_hosts"
+    domain_name: "kloudster.net"
+    pki_directory: "{{ spool_directory }}/pki"
+    pki_subject_country: "PL"
+    pki_subject_state_or_province: "Malopolska"
+    pki_subject_locality: "Krakow"
+    pki_subject_organization: "TUCHA SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA"
+    pki_subject_organizational_unit: "sluzba bezpieczenstwa"
+    pki_subject_email_address: "security@tucha.pl"
+    pki_ca_list:
+      - ca_name_brief: root
+        ca_name_full: Root
+        ca_key_is_encrypted: true
+        ca_key_size: 4096
+        ca_strict: false
+        ca_stubby: false
+      - ca_name_brief: vault_production
+        ca_name_full: Vault
+        ca_key_is_encrypted: true
+        ca_key_size: 2048
+        ca_parent: root
+        ca_strict: false
+        ca_stubby: true
+      - ca_name_brief: vault_development
+        ca_name_full: Vault (DEVELOPMENT)
+        ca_key_is_encrypted: true
+        ca_key_size: 1024
+        ca_parent: root
+        ca_strict: false
+        ca_stubby: true
+    pki_default_ca: root
+    pki_term: 300
+  hosts:
+    localhost:
+    vault1.production:
+    vault2.production:
+    vault3.production:
+    vault1.development:
+    vault2.development:
+    vault3.development:
+  children:
+    controller:
+      hosts:
+        localhost:
+      vars:
+        ansible_connection: local
+    vault_clusters:
+      vars:
+        ansible_connection: ssh
+        ansible_user: root
+        ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+        ansible_ssh_common_args: "-o UserKnownHostsFile={{ ssh_known_hosts_file }}"
+        kickstart_template: vault.ks.j2
+        ipv4_netmask: 255.255.255.0
+        ipv4_gateway: 10.13.127.254
+        ipv4_nameservers:
+          - 10.13.127.254
+          - 1.1.1.1
+          - 8.8.8.8
+          - 9.9.9.9
+        reveal_secrets_to_console: false
+        reveal_secrets_to_file: /dev/null
+        vault_secrets:
+          kloudster:
+            __engine:
+              type: kv
+              version: 2
+              description: the primary collection of the Kloudster secrets
+            alpha:
+              __policies:
+                - name: some_policy
+                  rules:
+                    - path: .
+                      capabilities: [read, list]
+                  weight: 1
+              a_foo: $RANDOM$
+              a_bar: T0p$3cЯ3T
+              a_baz: ...
+              bravo:
+                b_foo: $RANDOM$
+                b_bar: T0p$3cЯ3T
+                b_baz: ...
+                charlie:
+                  c_foo: $RANDOM$
+                  c_bar: T0p$3cЯ3T
+                  c_baz: ...
+        vault_policies:
+          - name: some_policy
+            rules:
+              - path: /kloudster/alpha/bravo/charlie/delta/echo
+                capabilities: [read, list]
+          - name: another_policy
+            rules:
+              - path: /kloudster/alpha/bravo
+                capabilities: [read, list]
+            tokens:
+              - name: some_token_2
+                orphan: true
+                weight: 666
+          - name: yet_another_policy
+            rules:
+              - path: /kloudster/alpha/bravo/charlie/*
+                capabilities: [read, update]
+        vault_tokens:
+          - name: some_token
+            policies:
+              - some_policy
+            orphan: false
+            type: service
+            regenerate: true
+          - name: another_token
+            policies:
+              - another_policy
+            orphan: true
+            type: batch
+      children:
+        vault_production:
+          vars:
+            domain_name: tower.kloudster.net
+            ca_name_brief: "vault_production"
+            shamir_key_shares: 5
+            shamir_key_threshold: 3
+            token_accessors_directory: "{{ spool_directory }}/vault_production/"
+            reveal_secrets_to_console: true
+            reveal_secrets_to_file: "?"
+          hosts:
+            vault1.production:
+              ansible_host: 10.13.127.17
+            vault2.production:
+              ansible_host: 10.13.127.18
+            vault3.production:
+              ansible_host: 10.13.127.19
+        vault_development:
+          vars:
+            domain_name: tower.d.kloudster.net
+            ca_name_brief: "vault_development"
+            shamir_key_shares: 1
+            shamir_key_threshold: 1
+            vault_api_port: 2800
+            token_accessors_directory: "{{ spool_directory }}/vault_development/"
+            reveal_secrets_to_console: true
+            reveal_secrets_to_file: "{{ spool_directory }}/vault_development_keys.yaml"
+          hosts:
+            vault1.development:
+              ansible_host: 10.13.127.1
+            vault2.development:
+              ansible_host: 10.13.127.2
+            vault3.development:
+              ansible_host: 10.13.127.3

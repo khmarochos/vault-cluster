@@ -1,0 +1,12 @@
+---
+
+vault_plugins:
+  - name: vault-secrets-gen
+    url: https://github.com/sethvargo/vault-secrets-gen/releases/download/v0.1.7/vault-secrets-gen_0.1.7_linux_amd64.zip
+    sha256_archive: fadb56b9395689fdcffe002abf64df73a66130614efe09627601b129b891ca76
+    sha256_module: 669cebf8b1ada54eeb8d8ae9d3c01a36e656e0e9eaea889af0155f20310b594c
+    type: secret
+    path: gen
+    binary_files:
+      - src: vault-secrets-gen_v0.1.7
+        dst: vault-secrets-gen

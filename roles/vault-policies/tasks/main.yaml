@@ -1,0 +1,25 @@
+---
+
+- block:
+
+    - name: Create a directory for the policies
+      file:
+        path: "{{ vault_directory_policies }}"
+        state: directory
+        mode: 0755
+
+    - name: Take the policies to setup
+      set_fact:
+        __vault_policies__policies: >-
+          {{
+            policies_to_setup | default(vault_policies) | default([])
+          }}
+
+    - name: Apply the policies
+      include_tasks: setup_policy.yaml
+      loop: "{{ __vault_policies__policies }}"
+      loop_control:
+        loop_var: policy_to_setup
+
+  when: >-
+    inventory_hostname == vault_cluster_leader

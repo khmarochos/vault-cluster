@@ -1,0 +1,49 @@
+---
+
+- name: "Update the configuration of the {{ vault_cluster }} cluster's nodes"
+  set_fact:
+    hostname: >-
+      {{
+        host | regex_replace('^([^\.]+)(\..+)?$', '\1')
+        ~ '.'
+        ~ hostvars[cluster_leader].domain_name
+      }}
+    ipv4_address: >-
+      {{
+        hostvars[host].ansible_host
+      }}
+    vault_cluster: >-
+      {{ vault_cluster }}
+    vault_cluster_leader: >-
+      {{ cluster_leader }}
+    vault_api_address: >-
+      {{
+        hostvars[cluster_leader].vault_api_address | default(hostvars[cluster_leader].domain_name)
+      }}
+    vault_api_port: >-
+      {{
+        hostvars[cluster_leader].vault_api_port | default(8200)
+      }}
+    vault_keys_updated: >-
+      false
+    vault_tokens_updated: >-
+      false
+    reveal_secrets_to_file: >-
+      {{
+        (hostvars[cluster_leader].reveal_secrets_to_file | default(false)) | ternary(
+          (hostvars[cluster_leader].reveal_secrets_to_file == '?') | ternary(
+            spool_directory ~ '/' ~ 'secrets_' ~ vault_cluster ~ '.yaml',
+            hostvars[cluster_leader].reveal_secrets_to_file
+          ),
+          false
+        )
+      }}
+    reveal_secrets_to_console: >-
+      {{
+        hostvars[cluster_leader].reveal_secrets_to_console | default(false)
+      }}
+  delegate_to: "{{ host }}"
+  delegate_facts: true
+  loop: "{{ groups[vault_cluster] }}"
+  loop_control:
+    loop_var: host

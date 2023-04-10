@@ -1,0 +1,74 @@
+---
+
+- name: Create the directory for the CentOS Kickstart configuration files
+  file:
+    name: "{{ kickstart_directory }}"
+    state: directory
+    mode: 0755
+    recurse: true
+
+- name: Install the CentOS Kickstart configuration files for each node
+  include_tasks: kickstart_node.yaml
+  loop: "{{ groups.vault_clusters }}"
+  loop_control:
+    loop_var: vault_cluster_node
+
+- name: Generate the name for a new Docker container
+  set_fact:
+    __controller__docker_container_name: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') | to_uuid }}"
+
+- name: Perform the OS installation
+  block:
+
+    - name: Start a Docker container for CentOS Kickstart
+      docker_container:
+        name: "{{ __controller__docker_container_name }}"
+        image: httpd:2.4
+        volumes:
+          - "{{ kickstart_directory }}:/usr/local/apache2/htdocs:ro"
+        ports:
+          - "{{ kickstart_server_port }}:80"
+        auto_remove: yes
+        container_default_behavior: no_defaults
+        tls_hostname: localhost
+      become: no
+
+    - name: "Make sure that all the nodes' configuration files are available"
+      uri:
+        url: "http://127.0.0.1:{{ kickstart_server_port }}/{{ vault_cluster_node }}{{ kickstart_file_suffix }}"
+        return_content: yes
+      register: result
+      failed_when:
+        - result.content | hash('sha1') != __controller__kickstart_checksums[vault_cluster_node]
+      loop: "{{ groups[vault_clusters_group] }}"
+      loop_control:
+        loop_var: vault_cluster_node
+      ignore_errors: yes
+
+    - name: OS installation
+      pause:
+        prompt: "Now install the operating systems on all the servers and press the Enter key to continue"
+
+  always:
+
+    - name: Stop the Docker container previously started for CentOS Kickstart
+      docker_container:
+        name: "{{ __controller__docker_container_name }}"
+        state: stopped
+        container_default_behavior: no_defaults
+        tls_hostname: localhost
+      become: no
+
+    - name: Make sure that the Docker container previously started for CentOS Kickstart is removed
+      docker_container:
+        name: "{{ __controller__docker_container_name }}"
+        state: absent
+        container_default_behavior: no_defaults
+        tls_hostname: localhost
+      become: no
+
+- name: Add the SSH host key for each node
+  include_tasks: ssh_host_key.yaml
+  loop: "{{ groups[vault_clusters_group] }}"
+  loop_control:
+    loop_var: vault_cluster_node

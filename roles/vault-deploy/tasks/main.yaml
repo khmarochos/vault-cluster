@@ -1,0 +1,34 @@
+---
+
+- name: Install Vault
+  yum:
+    name: vault
+    state: latest
+
+- name: Set up the firewall rules
+  include_tasks: firewall.yaml
+
+- name: Install the certificates
+  include_tasks: certificates.yaml
+
+- name: Update the /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    regexp: >-
+      {{
+        '^'
+          ~ hostvars[neighbour].ipv4_address | regex_escape
+          ~ '\\s+'
+          ~ hostvars[neighbour].hostname | regex_escape
+          ~ '$'
+      }}
+    line: "{{ hostvars[neighbour].ipv4_address }}\t{{ hostvars[neighbour].hostname }}"
+  loop: "{{ groups[vault_cluster] | list }}"
+  loop_control:
+    loop_var: neighbour
+
+- name: Start or restart the Vault server
+  service:
+    name: vault
+    state: restarted
+    enabled: true

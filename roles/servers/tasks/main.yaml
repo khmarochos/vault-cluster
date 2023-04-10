@@ -1,0 +1,18 @@
+---
+
+- name: Prepare the RSA key
+  include_tasks: rsa_key.yaml
+
+- name: Perform the OS installation procedures
+  include_tasks: os_install.yaml
+  when:
+    - not (skip_os_install | default(false) | bool)
+
+- name: Set the hostname
+  hostname:
+    use: systemd
+    name: "{{ hostvars[vault_cluster_node].hostname }}"
+  delegate_to: "{{ vault_cluster_node }}"
+  loop: "{{ groups[vault_clusters_group] }}"
+  loop_control:
+    loop_var: vault_cluster_node

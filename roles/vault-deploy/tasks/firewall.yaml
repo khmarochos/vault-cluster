@@ -1,0 +1,30 @@
+---
+
+- name: Permit SSH connections from the trusted zone
+  ansible.posix.firewalld:
+    service: ssh
+    zone: trusted
+    permanent: yes
+    state: enabled
+  notify: Reload the firewalld service
+
+- name: Permit certain kinds of traffic from the trusted zone
+  ansible.posix.firewalld:
+    port: "{{ port }}"
+    zone: trusted
+    permanent: yes
+    state: enabled
+  loop:
+    - 8200/tcp
+    - 8201/tcp
+  loop_control:
+    loop_var: port
+  notify: Reload the firewalld service
+
+- name: Add the eth0 interface to the trusted zone
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: eth0
+    permanent: yes
+    immediate: yes
+    state: enabled

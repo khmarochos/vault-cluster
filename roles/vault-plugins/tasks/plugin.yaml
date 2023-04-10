@@ -1,0 +1,107 @@
+---
+
+- name: Pause for some time
+  pause:
+    seconds: 30
+
+- name: "Check if the {{ plugin.name }} plugin of the {{ plugin.type }} type is installed"
+  shell:
+    cmd: >-
+      vault
+      plugin
+      info
+      -format=json
+      {{ plugin.type | quote }}
+      {{ plugin.name | quote }}
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  register: __vault_plugins__plugin_info
+  changed_when: false
+  ignore_errors: true
+
+- block:
+
+    - name: Create a temporary directory
+      file:
+        state: directory
+        path: "{{ temporary_directory }}"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: "Download the {{ plugin.name }} plugin's archive"
+      get_url:
+        url: "{{ plugin.url }}"
+        dest: "{{ temporary_directory }}/.archive.zip"
+        checksum: "sha256:{{ plugin.sha256_archive }}"
+
+    - name: "Unarchive the {{ plugin.name }} plugin"
+      unarchive:
+        remote_src: true
+        src: "{{ temporary_directory }}/.archive.zip"
+        dest: "{{ temporary_directory }}/"
+        owner: root
+        group: root
+
+    - name: "Install the {{ plugin.name }} plugin"
+      copy:
+        remote_src: true
+        src: "{{ temporary_directory }}/{{ binary_file.src }}"
+        dest: "{{ vault_directory_plugins }}/{{ binary_file.dst }}"
+        owner: root
+        group: root
+        mode: 0755
+      loop: "{{ plugin.binary_files }}"
+      loop_control:
+        loop_var: binary_file
+
+    - name: "Count the checksum for the {{ plugin.name }} plugin"
+      stat:
+        path: "{{ vault_directory_plugins }}/{{ plugin['binary_files'][0]['dst'] }}"
+        checksum_algorithm: sha256
+      register: __vault__stat_result
+
+    - fail: "The checksum {{ __vault__stat_result.stat.checksum }} mismatches"
+      when: __vault__stat_result.stat.checksum != plugin.sha256_module
+
+    - name: Remove the temporary directory we created before
+      file:
+        state: absent
+        path: "{{ temporary_directory }}"
+
+    - name: "Register the {{ plugin.name }} plugin"
+      shell:
+        cmd: >-
+          vault
+          plugin
+          register
+          -sha256={{ __vault__stat_result.stat.checksum | quote }}
+          -command={{ plugin['binary_files'][0]['dst'] | quote }}
+          {{ plugin.type | quote }}
+          {{ plugin.name | quote }}
+      environment:
+        VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+
+    - name: "Enable the {{ plugin.name }} plugin"
+      shell:
+        cmd: >-
+          vault
+          secrets
+          enable
+          -path={{ plugin.path | quote }}
+          -plugin-name={{ plugin.name | quote }}
+          plugin
+      environment:
+        VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+      when:
+        plugin.type == 'secret' and
+        inventory_hostname == vault_cluster_leader
+
+  when: >-
+    __vault_plugins__plugin_info.rc != 0 or
+    (
+      (__vault_plugins__plugin_info.stdout) is defined and
+      (__vault_plugins__plugin_info.stdout | from_json) is defined and
+      (__vault_plugins__plugin_info.stdout | from_json).sha256 is defined and
+      (__vault_plugins__plugin_info.stdout | from_json).sha256 != plugin.sha256_module
+    )

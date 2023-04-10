@@ -1,0 +1,71 @@
+---
+
+- name: "Look up for the {{ policy.name }} policy"
+  set_fact:
+    __vault_secrets__policy_from_secrets: >-
+      {{
+        policy
+      }}
+    __vault_secrets__policy_from_globals: >-
+      {{
+        (vault_policies | selectattr('name', 'equalto', policy.name) | default([]))[0]
+      }}
+
+- name: "Determine weight of {{ policy.name }} policy"
+  set_fact:
+    __vault_secrets__policy_from_secrets: >-
+      {{
+        __vault_secrets__policy_from_secrets | combine(
+          {
+            'weight': (
+              'weight' in __vault_secrets__policy_from_secrets and
+              __vault_secrets__policy_from_secrets.weight is defined
+            ) | ternary(
+              __vault_secrets__policy_from_secrets.weight,
+              0
+            )
+          }
+        )
+      }}
+    __vault_secrets__policy_from_globals: >-
+      {{
+        __vault_secrets__policy_from_globals | combine(
+          {
+            'weight': (
+              'weight' in __vault_secrets__policy_from_globals and
+              __vault_secrets__policy_from_globals.weight is defined
+            ) | ternary(
+              __vault_secrets__policy_from_globals.weight,
+              0
+            )
+          }
+        )
+      }}
+
+- name: "Normalize paths in the {{ policy.name }} policy"
+  set_fact:
+    __vault_secrets__policy_from_secrets: >-
+      {{
+        __vault_secrets__policy_from_secrets | full_secret_path_in_policy(branch)
+      }}
+
+- name: "Merge the {{ policy.name }} policy into the global policies list"
+  set_fact:
+    vault_policies: >-
+      {{
+        vault_policies
+          | default([])
+          | rejectattr('name', 'equalto', policy.name) +
+          [
+            (__vault_secrets__policy_from_secrets.weight | int == -1) | ternary(
+              __vault_secrets__policy_from_secrets,
+              (__vault_secrets__policy_from_globals.weight | int == -1) | ternary(
+                __vault_secrets__policy_from_globals,
+                (__vault_secrets__policy_from_secrets.weight | int >= __vault_secrets__policy_from_globals.weight | int) | ternary(
+                  __vault_secrets__policy_from_globals | combine(__vault_secrets__policy_from_secrets, list_merge='append_rp', recursive=true),
+                  __vault_secrets__policy_from_secrets | combine(__vault_secrets__policy_from_globals, list_merge='append_rp', recursive=true)
+                )
+              )
+            )
+          ]
+      }}

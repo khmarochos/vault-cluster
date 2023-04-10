@@ -1,0 +1,10 @@
+---
+
+- name: Configure the clusters
+  include_tasks: cluster.yaml
+  vars:
+    cluster_leader: "{{ groups[vault_cluster][0] }}"
+  loop: "{{ vault_clusters }}"
+  loop_control:
+    loop_var: vault_cluster
+  when: not (cached_vault_configuration | default(false))

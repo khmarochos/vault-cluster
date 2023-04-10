@@ -1,0 +1,17 @@
+---
+
+- name: Scan for SSH host keys
+  command:
+    cmd: ssh-keyscan -t ssh-ed25519 {{ hostvars[vault_cluster_node]['ansible_host'] }}
+  changed_when: false
+  register: result
+
+- name: Update the known_hosts file
+  known_hosts:
+    path: "{{ ssh_known_hosts_file }}"
+    key: "{{ key }}"
+    name: "{{ hostvars[vault_cluster_node]['ansible_host'] }}"
+    hash_host: yes
+  loop: "{{ result.stdout_lines }}"
+  loop_control:
+    loop_var: key

@@ -1,0 +1,67 @@
+---
+
+- name: "Look up for the {{ token.name }} token"
+  set_fact:
+    __vault_tokens__token_from_policies: >-
+      {{
+        token
+      }}
+    __vault_tokens__token_from_globals: >-
+      {{
+        (vault_tokens | selectattr('name', 'equalto', token.name) | default([]))[0]
+      }}
+
+- name: "Determine weight of {{ token.name }} token"
+  set_fact:
+    __vault_tokens__token_from_policies: >-
+      {{
+        __vault_tokens__token_from_policies | combine(
+          {
+            'weight': (
+              'weight' in __vault_tokens__token_from_policies and
+              __vault_tokens__token_from_policies.weight is defined
+            ) | ternary(
+              __vault_tokens__token_from_policies.weight,
+              0
+            )
+          }
+        )
+      }}
+    __vault_tokens__token_from_globals: >-
+      {{
+        __vault_tokens__token_from_globals | combine(
+          {
+            'weight': (
+              'weight' in __vault_tokens__token_from_globals and
+              __vault_tokens__token_from_globals.weight is defined
+            ) | ternary(
+              __vault_tokens__token_from_globals.weight,
+              0
+            )
+          }
+        )
+      }}
+
+- name: "Merge the {{ token.name }} token into the global tokens list"
+  set_fact:
+    vault_tokens: >-
+      {{
+        vault_tokens
+          | default([])
+          | rejectattr('name', 'equalto', token.name) +
+          [
+            (__vault_tokens__token_from_policies.weight | int == -1) | ternary(
+              __vault_tokens__token_from_policies,
+              (__vault_tokens__token_from_globals.weight | int == -1) | ternary(
+                __vault_tokens__token_from_globals,
+                (__vault_tokens__token_from_policies.weight | int >= __vault_tokens__token_from_globals.weight | int) | ternary(
+                  __vault_tokens__token_from_globals | combine(__vault_tokens__token_from_policies, list_merge='append_rp', recursive=true),
+                  __vault_tokens__token_from_policies | combine(__vault_tokens__token_from_globals, list_merge='append_rp', recursive=true)
+                )
+              )
+            )
+          ]
+      }}
+
+- pause:
+    prompt: "{{ vault_tokens | to_nice_yaml }}"

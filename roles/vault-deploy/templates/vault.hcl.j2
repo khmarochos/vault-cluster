@@ -1,0 +1,24 @@
+cluster_addr  = "https://{{ hostname }}:8201"
+api_addr      = "https://{{ vault_api_address }}:{{ vault_api_port }}"
+ui = true
+disable_mlock = true
+disable_cache = true
+plugin_directory = "{{ vault_directory_plugins }}"
+
+listener "tcp" {
+  address            = "0.0.0.0:8200"
+  cluster_addr       = "0.0.0.0:8201"
+  tls_cert_file      = "{{ vault_directory_tls }}/vault-cert.pem"
+  tls_key_file       = "{{ vault_directory_tls }}/vault-key.pem"
+  tls_client_ca_file = "{{ vault_directory_tls }}/vault-ca.pem"
+}
+
+storage "raft" {
+  node_id = "{{ hostname }}"
+  path = "{{ vault_directory_data }}"
+{% for neighbour in groups[vault_cluster] %}
+  retry_join = {
+    leader_api_addr = "https://{{ hostvars[neighbour].hostname }}:8200"
+  }
+{% endfor %}
+}

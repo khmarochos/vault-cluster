@@ -1,0 +1,69 @@
+---
+
+- debug:
+    msg: "{{ vault_status }}"
+
+- block:
+
+    - name: "Initialize the {{ vault_cluster }} cluster"
+      command:
+        cmd: >-
+          vault
+          operator
+          init
+          -key-shares={{ shamir_key_shares | quote }}
+          -key-threshold={{ shamir_key_threshold | quote }}
+          -format=json
+      register: __vault_initialize__vault_operator_init
+      no_log: false
+
+    - name: "Parse and store the {{ vault_cluster }} cluster's keys"
+      throttle: 1
+      set_fact:
+        vault_keys_updated: >-
+          true
+        vault_keys: >-
+          {{
+            vault_keys | default({}) | combine(
+              {
+                'administrative': __vault_initialize__vault_operator_init.stdout | from_json
+              }
+            )
+          }}
+      delegate_to: "{{ host }}"
+      delegate_facts: true
+      loop: "{{ groups[vault_cluster] }}"
+      loop_control:
+        loop_var: host
+      no_log: false
+
+  when: >-
+    inventory_hostname == vault_cluster_leader and
+    not vault_status.initialized | default(false)
+
+- block:
+
+    - name: Load Vault secrets
+      set_fact:
+        vault_keys: >-
+          {{
+            vault_keys | default({}) | combine(
+              lookup('file', reveal_secrets_to_file) | from_yaml
+            )
+          }}
+      when: reveal_secrets_to_file | default(false)
+#      delegate_to: "{{ host }}"
+#      delegate_facts: true
+#      loop: "{{ groups[vault_cluster] }}"
+#      loop_control:
+#        loop_var: host
+
+  when: >-
+    vault_status.initialized | default(false) and
+    (
+      vault_keys is not defined or
+      vault_keys is not mapping or
+      'administrative' not in vault_keys or
+      vault_keys.administrative is not defined or
+      vault_keys.administrative is not mapping
+    )

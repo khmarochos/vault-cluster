@@ -1,0 +1,14 @@
+---
+
+- name: Get the Vault server's status
+  command:
+    cmd: vault status -format=json
+  register: __vault__vault_status
+  check_mode: false
+  changed_when: false
+  failed_when:
+    - __vault__vault_status.rc == 1
+
+- name: Parse and store the Vault server's status
+  set_fact:
+    vault_status: "{{ __vault__vault_status.stdout | from_json }}"

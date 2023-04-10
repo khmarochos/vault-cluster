@@ -1,0 +1,66 @@
+---
+
+- fail:
+    msg: >-
+      Putting the keys into the secret's root is not allowed,
+      the {{ branch }} key is inappropriate at
+      the {{ __vault_setup__branch_path | join('/') }} branch
+  when: __vault_setup__branch_path | length < 2
+
+- name: Set the temporary variable containing the value
+  set_fact:
+    __vault_secrets__value: "{{ leaf }}"
+  no_log: true
+
+- block:
+
+    - name: "Generate a new password for {{ leaf }} at {{ branch }}"
+      include_tasks: generate_password.yaml
+      vars:
+        result: __vault_secrets__password
+
+    - name: Set the temporary variable containing the value
+      set_fact:
+        __vault_secrets__value: "{{ __vault_secrets__password }}"
+      when: >-
+        __vault_secrets__password is defined
+      no_log: true
+
+  when: leaf == '$RANDOM$'
+
+- name: "Determine if {{ (__vault_setup__branch_path + [ branch ]) | join('/') }} needs to be patched"
+  command:
+    cmd: >-
+      vault
+      {{ __vault_secrets__engine_parameters.type | quote }}
+      list
+      -format=json
+      {{ __vault_setup__branch_path[:-1] | join('/') | quote }}
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  register: __vault_secrets__present
+  ignore_errors: true
+  changed_when: false
+  no_log: true
+
+- name: "Set the value of {{ (__vault_setup__branch_path + [ branch ]) | join('/') }}"
+  command:
+    cmd: >-
+      vault
+      {{ __vault_secrets__engine_parameters.type | quote}}
+      {{ 
+        (
+          __vault_setup__branch_path[-1] in (
+            __vault_secrets__present.stdout
+              | default({})
+              | from_json)
+        ) | ternary(
+          'patch',
+          'put'
+        )
+      }}
+      {{ __vault_setup__branch_path | join('/') | quote }}
+      {{ branch | quote }}={{ __vault_secrets__value | quote }}
+  environment:
+    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+  no_log: true
