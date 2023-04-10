@@ -1,17 +1,24 @@
 ---
 
-- name: "Look up for the {{ policy.name }} policy"
+- name: "Look up for the {{ policy[0] }} policy"
   set_fact:
     __vault_secrets__policy_from_secrets: >-
       {{
-        policy
+        policy[1]
       }}
     __vault_secrets__policy_from_globals: >-
       {{
-        (vault_policies | selectattr('name', 'equalto', policy.name))[0] | default([])
+        (
+          policy[0] in vault_policies and
+          vault_policies[policy[0]] is defined and
+          vault_policies[policy[0]] is mapping
+        ) | ternary(
+          vault_policies[policy[0]],
+          {}
+        )
       }}
 
-- name: "Determine weight of {{ policy.name }} policy"
+- name: "Determine weight of {{ policy[0] }} policy"
   set_fact:
     __vault_secrets__policy_from_secrets: >-
       {{
@@ -42,30 +49,35 @@
         )
       }}
 
-- name: "Normalize paths in the {{ policy.name }} policy"
+- name: "Normalize paths in the {{ policy[0] }} policy"
   set_fact:
     __vault_secrets__policy_from_secrets: >-
       {{
         __vault_secrets__policy_from_secrets | full_secret_path_in_policy(branch)
       }}
 
-- name: "Merge the {{ policy.name }} policy into the global policies list"
+- name: "Merge the {{ policy[0] }} policy into the global policies list"
   set_fact:
     vault_policies: >-
       {{
         vault_policies
-          | default([])
-          | rejectattr('name', 'equalto', policy.name) +
-          [
-            (__vault_secrets__policy_from_secrets.weight | int == -1) | ternary(
-              __vault_secrets__policy_from_secrets,
-              (__vault_secrets__policy_from_globals.weight | int == -1) | ternary(
-                __vault_secrets__policy_from_globals,
-                (__vault_secrets__policy_from_secrets.weight | int >= __vault_secrets__policy_from_globals.weight | int) | ternary(
-                  __vault_secrets__policy_from_globals | combine(__vault_secrets__policy_from_secrets, list_merge='append_rp', recursive=true),
-                  __vault_secrets__policy_from_secrets | combine(__vault_secrets__policy_from_globals, list_merge='append_rp', recursive=true)
+          | default({})
+          | combine(
+            {
+              policy[0]:
+                (__vault_secrets__policy_from_secrets.weight | int == -1) | ternary(
+                  __vault_secrets__policy_from_secrets,
+                  (__vault_secrets__policy_from_globals.weight | int == -1) | ternary(
+                    __vault_secrets__policy_from_globals,
+                    (__vault_secrets__policy_from_secrets.weight | int >= __vault_secrets__policy_from_globals.weight | int) | ternary(
+                      __vault_secrets__policy_from_globals | combine(__vault_secrets__policy_from_secrets, list_merge='append_rp', recursive=true),
+                      __vault_secrets__policy_from_secrets | combine(__vault_secrets__policy_from_globals, list_merge='append_rp', recursive=true)
+                    )
+                  )
                 )
-              )
-            )
-          ]
+            }
+          )
       }}
+
+#- pause:
+#    prompt: "{{ vault_policies | to_nice_yaml }}"

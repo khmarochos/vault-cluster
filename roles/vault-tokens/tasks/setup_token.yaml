@@ -13,7 +13,7 @@
           token
           lookup
           -accessor=true
-          {{ vault_keys['additional_tokens'][token_to_setup.name]['auth']['accessor'] }}
+          {{ vault_keys['additional_tokens'][token_to_setup[0]]['auth']['accessor'] }}
       environment:
         VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
       register: __vault_tokens__token_lookup_result
@@ -25,7 +25,7 @@
         __vault_tokens__create: false
       when: >-
         __vault_tokens__token_lookup_result.rc == 0 and
-        token_to_setup.regenerate | default(false) == false
+        token_to_setup[1]['regenerate'] | default(false) == false
 
   when: >-
     vault_keys is defined and
@@ -33,7 +33,7 @@
     'additional_tokens' in vault_keys and
     vault_keys.additional_tokens is defined and
     vault_keys.additional_tokens is mapping and
-    token_to_setup.name in vault_keys.additional_tokens
+    token_to_setup[0] in vault_keys.additional_tokens
 
 - block:
 
@@ -44,9 +44,9 @@
           token
           create
           -format=json
-          -display-name={{ token_to_setup.name }}
+          -display-name={{ token_to_setup[0] }}
           {{
-            token_to_setup.policies
+            token_to_setup[1]['policies']
             | map('quote')
             | map('regex_replace', '^(.+)$', '-policy=\1')
             | join(' ')
@@ -65,7 +65,7 @@
             vault_keys | default({}) | combine(
               {
                 'additional_tokens': {
-                  token_to_setup.name: __vault_tokens__token_create_result.stdout | from_json | combine(
+                  token_to_setup[0]: __vault_tokens__token_create_result.stdout | from_json | combine(
                     token_to_setup.regenerate | default(false) | ternary(
                       { 'regenerated': true },
                       {}

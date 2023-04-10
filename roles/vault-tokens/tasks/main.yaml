@@ -11,7 +11,7 @@
 
     - name: Create the tokens
       include_tasks: setup_token.yaml
-      loop: "{{ __vault_tokens__tokens }}"
+      loop: "{{ __vault_tokens__tokens | items }}"
       loop_control:
         loop_var: token_to_setup
 
