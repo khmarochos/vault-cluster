@@ -73,7 +73,7 @@ all:
               description: the primary collection of the Kloudster secrets
             alpha:
               __policies:
-                - name: some_policy
+                some_policy:
                   rules:
                     - path: .
                       capabilities: [read, list]
@@ -90,30 +90,30 @@ all:
                   c_bar: T0p$3cЯ3T
                   c_baz: ...
         vault_policies:
-          - name: some_policy
+          some_policy:
             rules:
               - path: /kloudster/alpha/bravo/charlie/delta/echo
                 capabilities: [read, list]
-          - name: another_policy
+          another_policy:
             rules:
               - path: /kloudster/alpha/bravo
                 capabilities: [read, list]
             tokens:
-              - name: some_token
+              some_token:
                 orphan: true
                 weight: 666
-          - name: yet_another_policy
+          yet_another_policy:
             rules:
               - path: /kloudster/alpha/bravo/charlie/*
                 capabilities: [read, update]
         vault_tokens:
-          - name: some_token
+          some_token:
             policies:
               - some_policy
             orphan: false
             type: service
             regenerate: true
-          - name: another_token
+          another_token:
             policies:
               - another_policy
             orphan: true
