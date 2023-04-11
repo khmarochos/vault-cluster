@@ -78,6 +78,3 @@
             }
           )
       }}
-
-#- pause:
-#    prompt: "{{ vault_policies | to_nice_yaml }}"
