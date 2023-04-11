@@ -82,7 +82,10 @@ all:
               a_bar: T0p$3cЯ3T
               a_baz: ...
               bravo:
-                b_foo: $RANDOM$
+                b_foo:
+                  __leaf:
+                    value: $RANDOM$
+                    overwrite: true
                 b_bar: T0p$3cЯ3T
                 b_baz: ...
                 charlie:

@@ -3,64 +3,80 @@
 - fail:
     msg: >-
       Putting the keys into the secret's root is not allowed,
-      the {{ branch }} key is inappropriate at
-      the {{ __vault_setup__branch_path | join('/') }} branch
+      the {{ branch[-1] }} key is inappropriate at
+      the {{ __vault_setup__branch_path[:-1] | join('/') }} branch
   when: __vault_setup__branch_path | length < 2
 
-- name: Set the temporary variable containing the value
-  set_fact:
-    __vault_secrets__value: "{{ leaf }}"
-  no_log: true
-
-- block:
-
-    - name: "Generate a new password for {{ leaf }} at {{ branch }}"
-      include_tasks: generate_password.yaml
-      vars:
-        result: __vault_secrets__password
-
-    - name: Set the temporary variable containing the value
-      set_fact:
-        __vault_secrets__value: "{{ __vault_secrets__password }}"
-      when: >-
-        __vault_secrets__password is defined
-      no_log: true
-
-  when: leaf == '$RANDOM$'
-
-- name: "Determine if {{ (__vault_setup__branch_path + [ branch ]) | join('/') }} needs to be patched"
+- name: "Get the raw contents of {{ branch[:-1] | join('/') }}"
   command:
     cmd: >-
       vault
       {{ __vault_secrets__engine_parameters.type | quote }}
-      list
+      get
       -format=json
-      {{ __vault_setup__branch_path[:-1] | join('/') | quote }}
+      {{ branch[:-1] | join('/') | quote }}
   environment:
     VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
   register: __vault_secrets__present
-  ignore_errors: true
+  failed_when: __vault_secrets__present.rc not in [0, 2]
   changed_when: false
-  no_log: true
+  no_log: false
 
-- name: "Set the value of {{ (__vault_setup__branch_path + [ branch ]) | join('/') }}"
-  command:
-    cmd: >-
-      vault
-      {{ __vault_secrets__engine_parameters.type | quote}}
-      {{ 
-        (
-          __vault_setup__branch_path[-1] in (
-            __vault_secrets__present.stdout
-              | default({})
-              | from_json)
-        ) | ternary(
-          'patch',
-          'put'
-        )
-      }}
-      {{ __vault_setup__branch_path | join('/') | quote }}
-      {{ branch | quote }}={{ __vault_secrets__value | quote }}
-  environment:
-    VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
-  no_log: true
+- name: "Try to process the contents of {{ branch[:-1] | join('/') }}"
+  set_fact:
+    __vault_secrets__present_contents: "{{ __vault_secrets__present.stdout | default('{}') | from_json }}"
+  ignore_errors: true
+
+- block:
+
+    - name: Set the temporary variable containing the value
+      set_fact:
+        __vault_secrets__value: "{{ value }}"
+      no_log: true
+
+    - block:
+
+        - name: "Generate a new password for {{ branch | join('/') }}"
+          include_tasks: generate_password.yaml
+          vars:
+            result: __vault_secrets__password
+
+        - name: Set the temporary variable containing the value
+          set_fact:
+            __vault_secrets__value: "{{ __vault_secrets__password }}"
+          when: >-
+            __vault_secrets__password is defined
+          no_log: true
+
+      when: __vault_secrets__value == '$RANDOM$'
+
+    - name: "Set the value of {{ branch | join('/') }}"
+      command:
+        cmd: >-
+          vault
+          {{ __vault_secrets__engine_parameters.type | quote}}
+          {{
+            (__vault_secrets__present.rc == 2) | ternary(
+              'put',
+              'patch'
+            )
+          }}
+          {{ branch[:-1] | join('/') | quote }}
+          {{ branch[-1] | quote }}={{ __vault_secrets__value | quote }}
+      environment:
+        VAULT_TOKEN: "{{ vault_keys.administrative.root_token }}"
+      no_log: false
+
+  when: >-
+    overwrite | bool or not (
+      __vault_secrets__present.rc == 0 and
+      __vault_secrets__present_contents is defined and
+      __vault_secrets__present_contents is mapping and
+      'data' in __vault_secrets__present_contents and
+      __vault_secrets__present_contents.data is defined and
+      __vault_secrets__present_contents.data is mapping and
+      'data' in __vault_secrets__present_contents.data and
+      __vault_secrets__present_contents.data.data is defined and
+      __vault_secrets__present_contents.data.data is mapping and
+      branch[-1] in __vault_secrets__present_contents.data.data
+    )

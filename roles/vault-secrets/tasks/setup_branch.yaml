@@ -39,12 +39,26 @@
 
 - include_tasks: setup_leaf.yaml
   vars:
-    branch: "{{ item.key }}"
-    leaf: "{{ item.value }}"
+    branch: "{{ __vault_setup__branch_path + [ item.key ] }}"
+    value: "{{ item.value }}"
+    overwrite: false
   loop: "{{ __vault_setup__branch | dict2items }}"
   when: >-
     item.key is not regex('^__') and
     item.value is not mapping
+
+- include_tasks: setup_leaf.yaml
+  vars:
+    branch: "{{ __vault_setup__branch_path }}"
+    value: "{{ __vault_setup__branch.__leaf.value }}"
+    overwrite: "{{ __vault_setup__branch.__leaf.overwrite | default(false) }}"
+  loop: "{{ __vault_setup__branch | dict2items }}"
+  when: >-
+    '__leaf' in __vault_setup__branch and
+    __vault_setup__branch.__leaf is defined and
+    __vault_setup__branch.__leaf is mapping and
+    'value' in __vault_setup__branch.__leaf and
+    __vault_setup__branch.__leaf.value is defined
 
 - include_tasks: setup_branch.yaml
   vars:
