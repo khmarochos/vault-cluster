@@ -1,5 +1,3 @@
-I am too lazy to write the documentation, so I asked GPT-4 to do that for me. The result has came out oddly satisfying. :-)
-
 # Vault Playbook Documentation
 
 #### You:
@@ -444,3 +442,72 @@ Ah, you're so brilliant kid! Thank you. :-)
 
 #### ChatGPT:
 Thank you for your kind words! I'm glad I could help. If you have any more questions or need further assistance, please don't hesitate to ask. Have a great day!
+
+
+#### You:
+Oh, can you also explain another few of aspects to the reader.
+1. Please, explain the building of the PKI tree, as this feature deserves some attention. The playbook generates all the certificates as a certification tree, so the operator could make it issuing the root certificates, a chain of intermediate certificates and a separate certificate for each Vault cluster.
+2. The operator isn't limited to the prodiction and development environments only. The playbook could deploy as many environments as its being asked to.
+
+#### ChatGPT:
+1. Building the PKI tree:
+
+The inventory YAML file provides a way to define and manage a hierarchical Public Key Infrastructure (PKI) tree for the Vault clusters. The PKI tree is built using a certification chain that starts with a root certificate and could include a chain of intermediate certificates, ultimately leading to separate certificates for each Vault cluster.
+
+In the provided YAML sample, the PKI tree is defined using the `pki_ca_list` key under the `vars` section:
+
+```yaml
+pki_ca_list:
+  - ca_name_brief: root
+    ...
+  - ca_name_brief: vault_production
+    ...
+    ca_parent: root
+  - ca_name_brief: vault_development
+    ...
+    ca_parent: root
+```
+
+Here, the `root` certificate is defined as the top-level root certificate authority (CA). Two intermediate CAs, `vault_production` and `vault_development`, are defined with `root` as their parent, which means they will be signed by the `root` CA.
+
+This hierarchical structure allows the operator to create a robust PKI tree, ensuring the trustworthiness and security of the certificates issued for each Vault cluster. The root certificate acts as the ultimate trust anchor, while the intermediate certificates provide additional layers of trust and allow for the separation of responsibilities across different environments or organizational units.
+
+2. Deploying multiple environments:
+
+The Ansible playbook is flexible enough to deploy multiple environments as required by the operator. The provided YAML sample demonstrates the deployment of two environments, `production` and `development`, but the playbook can be easily extended to handle any number of environments by modifying the inventory file.
+
+To deploy additional environments, the operator can add new child groups under the `vault_clusters` group, with appropriate configuration parameters. Each environment should have its own unique identifier and a set of hosts.
+
+For example, to create a new `staging` environment, the operator can add the following configuration to the inventory YAML file:
+
+```yaml
+children:
+  ...
+  vault_clusters:
+    ...
+    children:
+      ...
+      vault_staging:
+        vars:
+          domain_name: tower.staging.kloudster.net
+          ca_name_brief: "vault_staging"
+          ...
+        hosts:
+          vault1.staging:
+            ansible_host: 10.13.127.21
+          vault2.staging:
+            ansible_host: 10.13.127.22
+          vault3.staging:
+            ansible_host: 10.13.127.23
+```
+
+Here, the `vault_staging` group is added as a child of the `vault_clusters` group, with its own configuration variables and hosts. The operator can customize the settings for each environment as needed, providing greater flexibility in deploying and managing Vault clusters across multiple environments.
+
+In summary, the Ansible playbook provides a powerful and flexible way to build a hierarchical PKI tree and deploy Vault clusters across multiple environments. The operator can easily extend the playbook to handle various use cases and environments, ensuring a secure and scalable infrastructure for managing secrets, policies, and tokens.
+
+
+#### You:
+Ah, you are so good assistant! Thanks a lot.
+
+#### ChatGPT:
+You're very welcome! I'm glad I could help. If you have any more questions or need further assistance, please don't hesitate to ask. I'm always here to help. Have a great day!
